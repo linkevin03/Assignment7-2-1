@@ -10,7 +10,7 @@ behavior, or substitution results.
 Identify two classes in the final implementation with different responsibilities.
 Explain how their responsibilities give them different reasons to change.
 
-Write your answer here
+Write your answer here.
 
 ## 2. Open/Closed Principle
 
