@@ -3,7 +3,7 @@
 Replace each placeholder with a concise response of approximately one to three
 complete sentences. Cite evidence from the final implementation, such as specific
 classes, interfaces, constructor parameters, method calls, guards, runtime
-behavior, or substitution results.
+behavior, or substitution results
 
 ## 1. Single Responsibility Principle
 
