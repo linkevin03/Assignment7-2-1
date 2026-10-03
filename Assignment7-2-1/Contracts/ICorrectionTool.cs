@@ -2,9 +2,16 @@ using Assignment7_2_1.Domain;
 
 namespace Assignment7_2_1.Contracts;
 
+/// <summary>
+/// 
+/// </summary>
 public interface ICorrectionTool
 {
-    ParticipationRecord findRecord(Guid id);
+    ParticipationRecord FindRecord(Guid id);
+    
     void UpdateRecordNotes(Guid id, string? newNotes);
-    DeleteRecord
+    
+    void DeleteRecord(Guid id);
+    
+    List<ParticipationRecord> GetRecordsByStudent(string studentId);
 }
