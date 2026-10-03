@@ -41,14 +41,14 @@ This allows those implementations to be substituted without specific handling fo
 Identify two software clients and the focused interfaces they depend on. Name at
 least one operation deliberately excluded from each client's contract.
 
-Write your answer here.
+Creating participation rules depends on IParticipationAcceptanceRule. Record creators rely on IDateTimeProvider, but excludes access to any direct access to system operations like DateTime.Now.
 
 ## 5. Dependency Inversion and Constructor Injection
 
 Identify one high-level class, one low-level implementation, and the abstraction
 between them. Explain how the constructor makes that dependency explicit.
 
-Write your answer here.
+The high-level class is ParticipationRecordCoordinator, the low-level implementation is ParticipationRecordRepository, and the abstraction is IParticipationRecorder. This makes the dependency explicit by sending an IParticipationRecorder instead of creating a repository.
 
 ## 6. Composition Root and Substitution Evidence
 
@@ -56,7 +56,8 @@ Identify where concrete implementations are created and connected. Describe one
 implementation you substituted and explain what did not have to change as a
 result.
 
-Write your answer here.
+Concrete Implementations are made and connected in the Program.cs class, in Main. An implementation that is substituted is ParticipationRecordRepository by IParticipationRecorder, which means other record storages can be used without changing the rest of the classes.
+
 
 # John Kim
 
