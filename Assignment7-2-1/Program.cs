@@ -10,22 +10,34 @@ class Program
 {
     static void Main(string[] args)
     {
-        IParticipationRecorder recorder = new ParticipationRecordRepository();
-        
-        // There were issues saving a record due to UTC and how ParticipationRecord checked time
-        IDateTimeProvider clock = new LocalClock();
-
+        // Create concrete repo
         IStudentRepository studentRepo = new StudentRepository();
         IParticipationCategoryRepository categoryRepo = new ParticipationCategoryRepository();
-        IParticipationRecordRepository recordRepo = new ParticipationRecordRepository();
 
-        List<IParticipationAcceptanceRule> rules = new List<IParticipationAcceptanceRule>()
-        {
-            new ActiveStudentRule(studentRepo),
-            new DailyLimitRule(recordRepo),
-            new SameCategoryRule(recordRepo),
-            new StudentAndCategoryExistsRule(studentRepo, categoryRepo),
-        };
+        ParticipationRecordRepository recordRepository = new ParticipationRecordRepository();
+
+        // Participation record repo implements both interfaces needed by coordinator and rules
+        IParticipationRecorder recorder = recordRepository;
+        IParticipationRecordRepository recordRepo = recordRepository;
+
+        // Part 8
+        IDateTimeProvider clock = new FixedClock(
+            new DateTimeOffset(2026, 10, 3, 8, 0, 0, TimeSpan.Zero));
+
+        // Part 7
+        // IDateTimeProvider clock = new SystemClock();
+
+        // Acceptance rules
+        List<IParticipationAcceptanceRule> rules =
+            new List<IParticipationAcceptanceRule>
+            {
+                new ActiveStudentRule(studentRepo),
+                new DailyLimitRule(recordRepo),
+                new SameCategoryRule(recordRepo),
+                new StudentAndCategoryExistsRule(
+                    studentRepo,
+                    categoryRepo)
+            };
 
         var coordinator = new ParticipationRecordCoordinator(
             recorder,
@@ -33,74 +45,270 @@ class Program
             rules);
 
         Console.WriteLine("Participation System is composed.");
-        
-        // Testing acceptance
+
+        // Test Accepted Record
+        Console.WriteLine("\nTesting acceptance.");
+
         try
         {
-            Guid validStudentId = Guid.NewGuid();
-            Guid validCategoryId = Guid.NewGuid();
-            
-            var testStudent = new Student(validStudentId, "Fred", "fred@example.com");
-            var testCategory = new ParticipationCategory(validCategoryId, "Class",
-                "3112 CS", ParticipationType.AnswerQuestion, 
+            Guid studentId = Guid.NewGuid();
+            Guid categoryId = Guid.NewGuid();
+
+            var student = new Student(
+                studentId,
+                "Fred",
+                "fred@example.com");
+
+            var category = new ParticipationCategory(
+                categoryId,
+                "Class",
+                "3112 CS",
+                ParticipationType.AnswerQuestion,
                 new PointPolicy(2, "Correct answer"));
-            
-            studentRepo.Add(testStudent);
-            categoryRepo.Add(testCategory);
 
-            var dummyRecord = new ParticipationRecord(
+            studentRepo.Add(student);
+            categoryRepo.Add(category);
+
+            // Current coordinator gets the student and category
+            // through IParticipationRecorder. Therefore, we populate the
+            // record repo with an older record.
+            var oldRecord = new ParticipationRecord(
                 Guid.NewGuid(),
-                testStudent,
-                testCategory,
-                DateTime.Now.AddMinutes(-5),
-                null);
-            recorder.Save(dummyRecord);
+                student,
+                category,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
 
-            var record = coordinator.CreateRecord(validStudentId, validCategoryId, "Attended class");
-            Console.WriteLine("Record was accepted and stored in the repository");
+            recorder.Save(oldRecord);
+
+            // This record should be accepted because the old record
+            // is from a previous date
+            coordinator.CreateRecord(
+                studentId,
+                categoryId,
+                "Attended class");
+
+            Console.WriteLine(
+                "PASS: Record was accepted and stored.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Expected success but was rejected {ex.Message}");
+            Console.WriteLine(
+                $"FAIL: Expected success but was rejected: {ex.Message}");
         }
-        
-        // Testing rejection
-        Console.WriteLine("\nTesting rejection.");
+
+        // Test 2 Inactive Student
+        Console.WriteLine("\nTesting rejection of inactive student.");
+
         try
         {
-            Guid validStudentId = Guid.NewGuid();
-            Guid validCategoryId = Guid.NewGuid();
-            
-            var testStudent = new Student(validStudentId, "Fred", "fred@example.com");
-            testStudent.IsActive = false;
-            
-            var testCategory = new ParticipationCategory(validCategoryId, "Class",
-                "3112 CS", ParticipationType.AnswerQuestion, 
-                new PointPolicy(2, "Correct answer"));
-            
-            studentRepo.Add(testStudent);
-            categoryRepo.Add(testCategory);
-            
-            var dummyRecord = new ParticipationRecord(
-                Guid.NewGuid(),
-                testStudent,
-                testCategory,
-                DateTime.Now.AddMinutes(-5),
-                null);
-            recorder.Save(dummyRecord);
+            Guid studentId = Guid.NewGuid();
+            Guid categoryId = Guid.NewGuid();
 
-            var record = coordinator.CreateRecord(validStudentId, validCategoryId, "Should fail");
-            Console.WriteLine("Expected rejection, but record was made");
+            var student = new Student(
+                studentId,
+                "Inactive Student",
+                "inactive@example.com");
+
+            student.IsActive = false;
+
+            var category = new ParticipationCategory(
+                categoryId,
+                "Class",
+                "3112 CS",
+                ParticipationType.AnswerQuestion,
+                new PointPolicy(2, "Correct answer"));
+
+            studentRepo.Add(student);
+            categoryRepo.Add(category);
+
+            // Populate the record repo so the coordinator can find
+            // this student and category
+            var oldRecord = new ParticipationRecord(
+                Guid.NewGuid(),
+                student,
+                category,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
+
+            recorder.Save(oldRecord);
+
+            // This should be rejected by ActiveStudentRule
+            coordinator.CreateRecord(
+                studentId,
+                categoryId,
+                "Should fail");
+
+            Console.WriteLine(
+                "FAIL: Inactive student was accepted.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Correctly rejected, {ex.Message}");
+            Console.WriteLine(
+                $"PASS: Inactive student was rejected: {ex.Message}");
         }
-        
+
+        // Test 3 Daily Limit
+        Console.WriteLine("\nTesting three-record daily limit.");
+
+        try
+        {
+            Guid studentId = Guid.NewGuid();
+
+            var student = new Student(
+                studentId,
+                "Daily Limit Student",
+                "daily@example.com");
+
+            studentRepo.Add(student);
+
+            // Four different categories prevent SameCategoryRule
+            // from being the reason the fourth record is rejected.
+            var category1 = new ParticipationCategory(
+                Guid.NewGuid(),
+                "Class 1",
+                "CS101",
+                ParticipationType.AnswerQuestion,
+                new PointPolicy(2, "Answer"));
+
+            var category2 = new ParticipationCategory(
+                Guid.NewGuid(),
+                "Class 2",
+                "CS102",
+                ParticipationType.AnswerQuestion,
+                new PointPolicy(2, "Answer"));
+
+            var category3 = new ParticipationCategory(
+                Guid.NewGuid(),
+                "Class 3",
+                "CS103",
+                ParticipationType.AnswerQuestion,
+                new PointPolicy(2, "Answer"));
+
+            var category4 = new ParticipationCategory(
+                Guid.NewGuid(),
+                "Class 4",
+                "CS104",
+                ParticipationType.AnswerQuestion,
+                new PointPolicy(2, "Answer"));
+
+            categoryRepo.Add(category1);
+            categoryRepo.Add(category2);
+            categoryRepo.Add(category3);
+            categoryRepo.Add(category4);
+
+            // The current ParticipationRecordCoordinator looks up
+            // students and categories through the record repository.
+            //
+            // Therefore, populate one old record for each category.
+            // These records are from the previous date, so they do not
+            // count toward today's daily limit.
+            
+            var oldRecord1 = new ParticipationRecord(
+                Guid.NewGuid(),
+                student,
+                category1,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
+
+            var oldRecord2 = new ParticipationRecord(
+                Guid.NewGuid(),
+                student,
+                category2,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
+
+            var oldRecord3 = new ParticipationRecord(
+                Guid.NewGuid(),
+                student,
+                category3,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
+
+            var oldRecord4 = new ParticipationRecord(
+                Guid.NewGuid(),
+                student,
+                category4,
+                new DateTime(2026, 10, 2, 8, 0, 0),
+                "Previous day");
+
+            recorder.Save(oldRecord1);
+            recorder.Save(oldRecord2);
+            recorder.Save(oldRecord3);
+            recorder.Save(oldRecord4);
+
+            Console.WriteLine(
+                "Creating first participation record...");
+
+            coordinator.CreateRecord(
+                studentId,
+                category1.Id,
+                "First participation");
+
+            Console.WriteLine(
+                "PASS: Record 1 accepted.");
+
+            Console.WriteLine(
+                "Creating second participation record...");
+
+            coordinator.CreateRecord(
+                studentId,
+                category2.Id,
+                "Second participation");
+
+            Console.WriteLine(
+                "PASS: Record 2 accepted.");
+
+            Console.WriteLine(
+                "Creating third participation record...");
+
+            coordinator.CreateRecord(
+                studentId,
+                category3.Id,
+                "Third participation");
+
+            Console.WriteLine(
+                "PASS: Record 3 accepted.");
+
+            Console.WriteLine(
+                "Creating fourth participation record...");
+
+            // This should be rejected by DailyLimitRule
+            coordinator.CreateRecord(
+                studentId,
+                category4.Id,
+                "Fourth participation");
+
+            Console.WriteLine(
+                "FAIL: Fourth record was accepted.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"PASS: Fourth record was rejected: {ex.Message}");
+        }
     }
-    
-    class LocalClock : IDateTimeProvider
+}
+
+class SystemClock : IDateTimeProvider
+{
+    public DateTimeOffset UtcNow()
     {
-        public DateTimeOffset UtcNow() => new DateTimeOffset(DateTime.Now);
+        return DateTimeOffset.UtcNow;
+    }
+}
+
+class FixedClock : IDateTimeProvider
+{
+    private readonly DateTimeOffset _fixedTime;
+
+    public FixedClock(DateTimeOffset fixedTime)
+    {
+        _fixedTime = fixedTime;
+    }
+
+    public DateTimeOffset UtcNow()
+    {
+        return _fixedTime;
     }
 }
