@@ -6,7 +6,11 @@ namespace Assignment7_2_1.Service;
 /// <summary>
 /// Stores participation records in memory and calculates totals from managed records.
 /// </summary>
-public class ParticipationRecordRepository : IParticipationRecordRepository
+public class ParticipationRecordRepository : 
+    IParticipationRecordRepository,
+    ICorrectionTool,
+    IProgressDashboard,
+    IParticipationRecorder
 {
     private readonly List<ParticipationRecord> _records = new();
 
@@ -22,22 +26,34 @@ public class ParticipationRecordRepository : IParticipationRecordRepository
 
         _records.Add(record);
     }
+    
+    public void Save(ParticipationRecord record) => Add(record);
+    
+    public ParticipationRecord FindRecord(Guid id) => GetById(id);
 
-    /// <inheritdoc />
-    public ParticipationRecord GetById(Guid id)
+    public void UpdateRecordNotes(Guid id, string? newNotes)
     {
-        return _records.Find(record => record.Id == id)
-            ?? throw new KeyNotFoundException($"Participation record {id} was not found.");
+        ParticipationRecord record = FindRecord(id);
+        record.UpdateNotes(newNotes);
     }
 
-    /// <inheritdoc />
-    public List<ParticipationRecord> GetAll()
+    public void DeleteRecord(Guid id)
     {
-        return new List<ParticipationRecord>(_records);
+        ParticipationRecord record = FindRecord(id);
+        _records.Remove(record);
     }
 
-    /// <inheritdoc />
-    public int GetTotalPointsForStudent(Guid studentId)
+    public List<ParticipationRecord> GetRecordsByStudent(Guid studentId)
+    {
+        return GetRecordsForStudent(studentId);
+    }
+
+    public List<ParticipationRecord> GetRecordsForStudent(Guid studentId)
+    {
+        return _records.Where(r => r.Student.Id == studentId).ToList();
+    }
+
+    public int CalculateTotalPoints(Guid studentId)
     {
         if (studentId == Guid.Empty)
         {
@@ -57,17 +73,51 @@ public class ParticipationRecordRepository : IParticipationRecordRepository
         return total;
     }
 
+    public Student GetStudent(Guid studentId)
+    {
+        var record = _records.FirstOrDefault(r => r.Student.Id == studentId);
+        if (record != null) return record.Student;
+        throw new KeyNotFoundException($"Student {studentId} was not found.");
+    }
+    
+    public List<ParticipationCategory> GetCategories()
+    {
+        return _records.Select(r => r.Category).Distinct().ToList();
+    }
+
+    public List<ParticipationRecord> GetStudentRecord(Guid studentId)
+    {
+        return GetRecordsForStudent(studentId);
+    }
+
+    /// <inheritdoc />
+    public ParticipationRecord GetById(Guid id)
+    {
+        return _records.Find(record => record.Id == id)
+            ?? throw new KeyNotFoundException($"Participation record {id} was not found.");
+    }
+
+    /// <inheritdoc />
+    public List<ParticipationRecord> GetAll()
+    {
+        return new List<ParticipationRecord>(_records);
+    }
+
+    /// <inheritdoc />
+    public int GetTotalPointsForStudent(Guid studentId)
+    {
+        return CalculateTotalPoints(studentId);
+    }
+
     /// <inheritdoc />
     public void UpdateNotes(Guid id, string? notes)
     {
-        ParticipationRecord record = GetById(id);
-        record.UpdateNotes(notes);
+        UpdateRecordNotes(id, notes);
     }
 
     /// <inheritdoc />
     public void Delete(Guid id)
     {
-        ParticipationRecord record = GetById(id);
-        _records.Remove(record);
+        DeleteRecord(id);
     }
 }
