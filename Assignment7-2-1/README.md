@@ -72,7 +72,7 @@ behavior, or substitution results.
 Identify two classes in the final implementation with different responsibilities.
 Explain how their responsibilities give them different reasons to change.
 
-Write your answer here.
+ParticipationService manages execution of saving participation. ParticipationService changes if saving workflow changes. ParticipationRecord changes if data validation changes.
 
 ## 2. Open/Closed Principle
 
@@ -80,7 +80,7 @@ Explain how another participation-acceptance rule can be added without modifying
 the record-creation algorithm. Cite the abstraction and rule collection used by
 the implementation.
 
-Write your answer here.
+The new rules can be added from implementing IParticipationAcceptanceRule, registering them in IReadOnlyList<IParticipationAcceptanceRule> in Program.cs. ParticipationService loops over the collection dynamically.
 
 ## 3. Liskov Substitution Principle
 
@@ -88,21 +88,21 @@ State the behavioral expectation shared by participation-rule implementations an
 explain why the coordinator can use any implementation without rule-specific
 handling.
 
-Write your answer here.
+Every rule implements IParticipationAcceptanceRule to evaluate the proposals. ParticipationService can get through all the results without needing special handling since all the rule classes use the same contract.
 
 ## 4. Interface Segregation Principle
 
 Identify two software clients and the focused interfaces they depend on. Name at
 least one operation deliberately excluded from each client's contract.
 
-Write your answer here.
+ParticipationService relies on IStudentRepository for GetById excluding delete. It also uses IParticipationRecordRepository for Add excluding ClearAll.
 
 ## 5. Dependency Inversion and Constructor Injection
 
 Identify one high-level class, one low-level implementation, and the abstraction
 between them. Explain how the constructor makes that dependency explicit.
 
-Write your answer here.
+ParticipationService depends on IStudentRepository interface instead of the class. IStudentRepository getting accepted as a constructor parameter has the dependency at compile time. 
 
 ## 6. Composition Root and Substitution Evidence
 
@@ -110,7 +110,7 @@ Identify where concrete implementations are created and connected. Describe one
 implementation you substituted and explain what did not have to change as a
 result.
 
-Write your answer here.
+All the concrete dependencies are instantiated with Program.cs. Swapping StudentRepository for a different one requires updating only Program.cs.
 
 # Kevin Lin
 
