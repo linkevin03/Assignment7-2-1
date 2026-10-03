@@ -13,7 +13,9 @@ behavior, or substitution results.
 Identify two classes in the final implementation with different responsibilities.
 Explain how their responsibilities give them different reasons to change.
 
-Write your answer here.
+The two classes DailyLimitRule and SystemDateTransferProvider have different responsibilities.
+DailyLimitRule deals with student participation, and changes if the participation limit changes.
+SystemDateTimeProvider would change if the system or computers time changed.
 
 ## 2. Open/Closed Principle
 
@@ -21,7 +23,9 @@ Explain how another participation-acceptance rule can be added without modifying
 the record-creation algorithm. Cite the abstraction and rule collection used by
 the implementation.
 
-Write your answer here.
+The rules are separated from the ParticipationRecord class, which allows new rules to be
+implemented through IParticipationAcceptanceRule. Because of this abstraction, the new rule
+can be added with its own check() method. This doesn't modify the algorithm itself.
 
 ## 3. Liskov Substitution Principle
 
@@ -29,7 +33,8 @@ State the behavioral expectation shared by participation-rule implementations an
 explain why the coordinator can use any implementation without rule-specific
 handling.
 
-Write your answer here.
+Any use of IParticipationAcceptanceRule has to return a RuleEvaluationResult to be accepted. 
+This allows those implementations to be substituted without specific handling for each change.
 
 ## 4. Interface Segregation Principle
 
